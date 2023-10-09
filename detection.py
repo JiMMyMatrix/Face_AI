@@ -1,5 +1,11 @@
 import cv2
 
+def face_detect_cam(img, detector):
+    img_rgb = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+    detections = detector.predict(img_rgb)
+
+    return img_rgb, detections
+
 
 def face_detect(img_path, detector):
     """

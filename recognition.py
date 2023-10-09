@@ -2,9 +2,46 @@ from tkinter import filedialog
 import cv2
 import matplotlib.pyplot as plt
 from comparsion import compare_face
-from detection import face_detect, face_detect_bgr
+from detection import face_detect, face_detect_bgr, face_detect_cam
 from feature_extraction import feature_extract
 import winsound
+
+def recognize_image_cam(detector, sess, db_path):
+    print("Recognizing camera image...")
+
+    cam = cv2.VideoCapture(0)
+    cam.set(3,640)
+    cam.set(4,480)
+
+    while True:
+        ret, frame = cam.read()
+        if ret:
+            img_rgb, detections = face_detect_cam(frame, detector)
+            position, landmarks, embeddings = feature_extract(img_rgb, detections, sess)
+            threshold = 1
+
+            for i, embedding in enumerate(embeddings):
+                name, distance, total_result = compare_face(embedding, threshold, db_path)
+
+                # Draw a rectangle around the recognized face and put the name of the person
+                cv2.rectangle(img_rgb, (position[i][0], position[i][1]), (position[i][2], position[i][3]), (0, 255, 0), 2)
+                font = cv2.FONT_HERSHEY_SIMPLEX
+                cv2.putText(img_rgb, name + ', ' + str(distance), (position[i][0] + 10, position[i][1] - 10), font, 0.8,
+                            (0, 255, 0), 2)
+
+                print(total_result)
+
+                cv2.imshow('Image', img_rgb)
+        else:
+            break
+
+        k = cv2.waitKey(10) & 0xff
+        if k == 27:
+            break
+
+    cam.release()
+    cv2.destroyAllWindows()
+
 
 
 def recognize_image(detector, sess, db_path):
