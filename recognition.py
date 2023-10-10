@@ -29,31 +29,31 @@ def init_TCP_conn():
     out = cv2.VideoWriter(VIDEO_NAME, fourcc, 30.0, (640,  480))
     return s, out, conn
 
-def receive_WebCAM(s, conn):
-    data = b""
-    payload_size = struct.calcsize(">L")
-    print("payload_size: {}".format(payload_size))
-    while len(data) < payload_size:
-        data += conn.recv(4096)
-        if not data:
-            cv2.destroyAllWindows()
-            conn,addr=s.accept()
-            continue
-    # receive image row data form client socket
-    packed_msg_size = data[:payload_size]
-    data = data[payload_size:]
-    msg_size = struct.unpack(">L", packed_msg_size)[0]
-    while len(data) < msg_size:
-        data += conn.recv(4096)
-    frame_data = data[:msg_size]
-    data = data[msg_size:]
-    # unpack image using pickle 
-    frame=pickle.loads(frame_data, fix_imports=True, encoding="bytes")
-    frame = cv2.imdecode(frame, cv2.IMREAD_COLOR)
+# def receive_WebCAM(s, conn):
+#     data = b""
+#     payload_size = struct.calcsize(">L")
+#     print("payload_size: {}".format(payload_size))
+#     while len(data) < payload_size:
+#         data += conn.recv(4096)
+#         if not data:
+#             cv2.destroyAllWindows()
+#             conn,addr=s.accept()
+#             continue
+#     # receive image row data form client socket
+#     packed_msg_size = data[:payload_size]
+#     data = data[payload_size:]
+#     msg_size = struct.unpack(">L", packed_msg_size)[0]
+#     while len(data) < msg_size:
+#         data += conn.recv(4096)
+#     frame_data = data[:msg_size]
+#     data = data[msg_size:]
+#     # unpack image using pickle 
+#     frame=pickle.loads(frame_data, fix_imports=True, encoding="bytes")
+#     frame = cv2.imdecode(frame, cv2.IMREAD_COLOR)
 
-    cv2.imshow('server',frame)
-    cv2.waitKey(1)
-    return frame
+#     cv2.imshow('server',frame)
+#     cv2.waitKey(1)
+#     return frame
 
 def close_all(err,sock,out):
     print(err)
@@ -72,10 +72,10 @@ def recognize_cam(detector, sess, db_path):
     while True:
         try:
             data = b""
-            payload_size = struct.calcsize(">L")
+            payload_size = struct.calcsize(">Q")
             print("payload_size: {}".format(payload_size))
             while len(data) < payload_size:
-                data += conn.recv(4096*4096*1024)
+                data += conn.recv(1024*1024*4096)
                 print("In array one")
                 if not data:
                     cv2.destroyAllWindows()
@@ -84,11 +84,15 @@ def recognize_cam(detector, sess, db_path):
             # receive image row data form client socket
             packed_msg_size = data[:payload_size]
             data = data[payload_size:]
-            msg_size = struct.unpack(">L", packed_msg_size)[0]
+            msg_size = struct.unpack(">Q", packed_msg_size)[0]
+            print(msg_size)
+            if msg_size>300000:
+                print("Error packet size, drop it!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
+                continue
             while len(data) < msg_size:
                 print(len(data),msg_size)
                 print("In array two")
-                data += conn.recv(4096*4096*1024)
+                data += conn.recv(1024*1024*4096)
             frame_data = data[:msg_size]
             data = data[msg_size:]
             # unpack image using pickle 
@@ -117,7 +121,7 @@ def recognize_cam(detector, sess, db_path):
 
                 print(total_result)
 
-                cv2.imshow('Image', img_out)
+            cv2.imshow('server', img_out)
             # else:
             #     break
 
