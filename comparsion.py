@@ -18,6 +18,8 @@ def compare_face(embeddings, threshold, db_path):
     :rtype: tuple
     """
 
+    unknown = 0
+    
     # Connect to the database
     conn_db = sqlite3.connect(db_path)
 
@@ -47,6 +49,8 @@ def compare_face(embeddings, threshold, db_path):
     # If the distance is larger than the threshold, consider the face as unknown
     if distance > threshold:
         name = 'Unknown person'
+        unknown = 1
+
 
     # Return the name, distance, and the dictionary of results
-    return name, distance, total_result
+    return name, distance, total_result, unknown

@@ -9,25 +9,38 @@ from IPython.display import clear_output
 import socket
 import pickle
 import struct ## new
+import serial
+import time
 
 def init_TCP_conn():
-    HOST='192.168.20.21'
-    PORT=10100
+    HOST='192.168.20.31'
+    PORT = 10100
+    PORT2 = 10101
     VIDEO_NAME='WebCAM_Ouput.mp4'
 
-    s=socket.socket(socket.AF_INET,socket.SOCK_STREAM)
-    print('Socket created')
+    s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    s2 = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    print('Both socket created')
 
-    s.bind((HOST,PORT))
+    s.bind((HOST, PORT))
     print('Socket bind complete')
     s.listen(10)
     print('Socket now listening')
 
-    conn,addr=s.accept()
+    s2.bind((HOST, PORT2))
+    print('Socket2 bind complete')
+    s2.listen(10)
+    print('Socket2 now listening')
+
+    conn, addr = s.accept()
+    conn2, addr2 = s2.accept()
+
     #video record
     fourcc = cv2.VideoWriter_fourcc(*'mp4v')
-    out = cv2.VideoWriter(VIDEO_NAME, fourcc, 30.0, (640,  480))
-    return s, out, conn
+    out = cv2.VideoWriter(VIDEO_NAME, fourcc, 6.0, (640,  480))
+
+
+    return s, out, conn, conn2
 
 # def receive_WebCAM(s, conn):
 #     data = b""
@@ -64,19 +77,22 @@ def close_all(err,sock,out):
 def recognize_cam(detector, sess, db_path):
     print("Recognizing camera image...")
 
-    s,out,conn=init_TCP_conn()
+    s, out, conn, conn2 = init_TCP_conn()
     # cam = cv2.VideoCapture(0)
     # cam.set(3,640)
     # cam.set(4,480)
+    first = 0
+    time_potential = 0
 
     while True:
         try:
+            reset_time = 0
             data = b""
             payload_size = struct.calcsize(">Q")
             print("payload_size: {}".format(payload_size))
             while len(data) < payload_size:
                 data += conn.recv(1024*1024*4096)
-                print("In array one")
+                print("In loop one")
                 if not data:
                     cv2.destroyAllWindows()
                     conn,addr=s.accept()
@@ -86,19 +102,18 @@ def recognize_cam(detector, sess, db_path):
             data = data[payload_size:]
             msg_size = struct.unpack(">Q", packed_msg_size)[0]
             print(msg_size)
-            if msg_size>300000:
+            if msg_size > 300000:
                 print("Error packet size, drop it!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
                 continue
             while len(data) < msg_size:
-                print(len(data),msg_size)
-                print("In array two")
+                print(len(data), msg_size)
+                print("In loop two")
                 data += conn.recv(1024*1024*4096)
             frame_data = data[:msg_size]
             data = data[msg_size:]
             # unpack image using pickle 
-            frame=pickle.loads(frame_data, fix_imports=True, encoding="bytes")
+            frame = pickle.loads(frame_data, fix_imports=True, encoding="bytes")
             frame = cv2.imdecode(frame, cv2.IMREAD_COLOR)
-            out.write(frame)
             # cv2.imshow('server',frame)
             # cv2.waitKey(1)
 
@@ -111,17 +126,40 @@ def recognize_cam(detector, sess, db_path):
             img_out = cv2.cvtColor(img_rgb, cv2.COLOR_BGR2RGB)
 
             for i, embedding in enumerate(embeddings):
-                name, distance, total_result = compare_face(embedding, threshold, db_path)
+                name, distance, total_result, unknown= compare_face(embedding, threshold, db_path)
                 
                 # Draw a rectangle around the recognized face and put the name of the person
-                cv2.rectangle(img_out, (position[i][0], position[i][1]), (position[i][2], position[i][3]), (0, 255, 0), 2)
-                font = cv2.FONT_HERSHEY_SIMPLEX
-                cv2.putText(img_out, name + ', ' + str(distance), (position[i][0] + 10, position[i][1] - 10), font, 0.8,
-                            (0, 255, 0), 2)
+                if(unknown):
+                    cv2.rectangle(img_out, (position[i][0], position[i][1]), (position[i][2], position[i][3]), (0, 0, 255), 2)
+                    font = cv2.FONT_HERSHEY_SIMPLEX
+                    cv2.putText(img_out, name + ', ' + str(distance), (position[i][0] + 10, position[i][1] - 10), font, 0.8,
+                                (0, 0, 255), 2)
+                    if not first:
+                        time_potential = time.time()
+                        first = 1
+                    
+                else:
+                    cv2.rectangle(img_out, (position[i][0], position[i][1]), (position[i][2], position[i][3]), (0, 255, 0), 2)
+                    font = cv2.FONT_HERSHEY_SIMPLEX
+                    cv2.putText(img_out, name + ', ' + str(distance), (position[i][0] + 10, position[i][1] - 10), font, 0.8,
+                                (0, 255, 0), 2)
+                    reset_time = 1
+                    first = 0
 
                 print(total_result)
 
+                if (time.time() - time_potential > 1) and not reset_time :
+                    input = bytes('Unknown Person\n', encoding='utf-8')
+                    conn2.send(input)
+                    first = 0
+                else:
+                    input = bytes('Empty\n', encoding='utf-8')
+                    conn2.send(input)
+                    
+
             cv2.imshow('server', img_out)
+            out.write(img_out)
+
             # else:
             #     break
 
@@ -137,8 +175,48 @@ def recognize_cam(detector, sess, db_path):
             break
     print('End while loop!!')
 
+def recognize_test(detector, sess, db_path):
+    cam = cv2.VideoCapture(0)
+    cam.set(3, 640)
+    cam.set(4, 480)
+
     
-    
+    while True:
+        ret, frame = cam.read()
+        
+        if ret:
+
+            img_rgb, detections = face_detect_cam(frame, detector)
+            position, landmarks, embeddings = feature_extract(img_rgb, detections, sess)
+            threshold = 1
+            
+            img_out = cv2.cvtColor(img_rgb, cv2.COLOR_BGR2RGB)
+
+            for i, embedding in enumerate(embeddings):
+                name, distance, total_result, unknown = compare_face(embedding, threshold, db_path)
+                
+                # Draw a rectangle around the recognized face and put the name of the person
+                if(unknown):
+                    cv2.rectangle(img_out, (position[i][0], position[i][1]), (position[i][2], position[i][3]), (0, 0, 255), 2)
+                    font = cv2.FONT_HERSHEY_SIMPLEX
+                    cv2.putText(img_out, name + ', ' + str(distance), (position[i][0] + 10, position[i][1] - 10), font, 0.8,
+                                (0, 0, 255), 2)
+                else:
+                    cv2.rectangle(img_out, (position[i][0], position[i][1]), (position[i][2], position[i][3]), (0, 255, 0), 2)
+                    font = cv2.FONT_HERSHEY_SIMPLEX
+                    cv2.putText(img_out, name + ', ' + str(distance), (position[i][0] + 10, position[i][1] - 10), font, 0.8,
+                                (0, 255, 0), 2)
+
+                print(total_result)
+
+            cv2.imshow('server', img_out)
+        else:
+            break
+
+        k = cv2.waitKey(10) & 0xff
+        if k == 27:
+            print('Closing the Socket and video...')
+            break
 
 
 def recognize_image(detector, sess, db_path):
