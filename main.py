@@ -3,7 +3,7 @@ import socket
 import pyttsx3
 from retinaface import RetinaFace
 from recognition import recognize_image, recognize_video, recognize_cam, close_all, recognize_test
-import serial
+
 
 
 

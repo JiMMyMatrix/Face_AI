@@ -9,17 +9,16 @@ from IPython.display import clear_output
 import socket
 import pickle
 import struct ## new
-import serial
 import time
 
 def init_TCP_conn():
-    HOST='192.168.20.31'
-    PORT = 10100
-    PORT2 = 10101
+    HOST='192.168.20.21'
+    PORT = 20100
+    PORT2 = 20101
     VIDEO_NAME='WebCAM_Ouput.mp4'
 
     s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    s2 = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    s2 = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     print('Both socket created')
 
     s.bind((HOST, PORT))
@@ -27,20 +26,21 @@ def init_TCP_conn():
     s.listen(10)
     print('Socket now listening')
 
-    s2.bind((HOST, PORT2))
-    print('Socket2 bind complete')
-    s2.listen(10)
-    print('Socket2 now listening')
+    s2.bind(("", PORT2))
+    print('UDP socket bind complete')
 
     conn, addr = s.accept()
-    conn2, addr2 = s2.accept()
+    print('UE Address: ', addr)
 
+    data, addr2 = s2.recvfrom(1024)
+    print('UE address', addr2)
+    
     #video record
     fourcc = cv2.VideoWriter_fourcc(*'mp4v')
     out = cv2.VideoWriter(VIDEO_NAME, fourcc, 6.0, (640,  480))
 
 
-    return s, out, conn, conn2
+    return s, out, conn, addr2
 
 # def receive_WebCAM(s, conn):
 #     data = b""
@@ -77,7 +77,7 @@ def close_all(err,sock,out):
 def recognize_cam(detector, sess, db_path):
     print("Recognizing camera image...")
 
-    s, out, conn, conn2 = init_TCP_conn()
+    s, out, conn, addr2 = init_TCP_conn()
     # cam = cv2.VideoCapture(0)
     # cam.set(3,640)
     # cam.set(4,480)
@@ -149,19 +149,19 @@ def recognize_cam(detector, sess, db_path):
                 print(total_result)
 
                 if (time.time() - time_potential > 1) and not reset_time :
+                    print('Send to socket2 !!!\n')
                     input = bytes('Unknown Person\n', encoding='utf-8')
-                    conn2.send(input)
+                    s.sendto(input, addr2)
                     first = 0
                 else:
                     input = bytes('Empty\n', encoding='utf-8')
-                    conn2.send(input)
+                    s.sendto(input, addr2)
                     
 
             cv2.imshow('server', img_out)
             out.write(img_out)
 
-            # else:
-            #     break
+
 
             k = cv2.waitKey(10) & 0xff
             if k == 27:
