@@ -19,7 +19,7 @@ def compare_face(embeddings, db_path):
     """
 
     unknown = 0
-    threshold = 0
+    threshold = 1
 
     # Connect to the database
     conn_db = sqlite3.connect(db_path)
@@ -48,10 +48,10 @@ def compare_face(embeddings, db_path):
     name, distance = total_names[idx_min], total_distances[idx_min]
 
     # If the distance is larger than the threshold, consider the face as unknown
-    if name == 'Ben':
-        threshold = 0.9
-    else:
-        threshold = 1
+    # if name == 'Ben':
+    #     threshold = 0.9
+    # else:
+    #     threshold = 1
     
     if distance > threshold:
         name = 'Unknown person'

@@ -130,6 +130,11 @@ def recognize_cam(detector, sess, db_path):
             
             img_out = cv2.cvtColor(img_rgb, cv2.COLOR_BGR2RGB)
 
+            # 為了避免unknown只有出現不到1秒後就離開畫面，下次偵測到人臉也是unknown，則會因為時間超出1秒而且reset time仍為0
+            if embeddings is None:
+                time_potential = time.time()
+                first = 0
+
             for i, embedding in enumerate(embeddings):
                 name, distance, total_result, unknown= compare_face(embedding, db_path)
                 
