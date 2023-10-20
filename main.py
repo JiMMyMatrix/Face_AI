@@ -27,5 +27,5 @@ if __name__ == "__main__":
     # engine.runAndWait()
     # engine.stop()
 
-    recognize_cam(detector, sess, db_path)
-    # recognize_test(detector, sess, db_path, ser)
+    # recognize_cam(detector, sess, db_path)
+    recognize_test(detector, sess, db_path)

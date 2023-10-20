@@ -127,12 +127,11 @@ def recognize_cam(detector, sess, db_path):
             # if len(frame)>0:
             img_rgb, detections = face_detect_cam(frame, detector)
             position, landmarks, embeddings = feature_extract(img_rgb, detections, sess)
-            threshold = 1
-
+            
             img_out = cv2.cvtColor(img_rgb, cv2.COLOR_BGR2RGB)
 
             for i, embedding in enumerate(embeddings):
-                name, distance, total_result, unknown= compare_face(embedding, threshold, db_path)
+                name, distance, total_result, unknown= compare_face(embedding, db_path)
                 
                 # Draw a rectangle around the recognized face and put the name of the person
                 if(unknown):
@@ -162,10 +161,10 @@ def recognize_cam(detector, sess, db_path):
                 else:
                     input = bytes('Empty\n', encoding='utf-8')
                     conn2.send(input)
-                    
+            
+            
 
             cv2.imshow('server', img_out)
-            
             out.write(img_out)
 
 
@@ -181,6 +180,7 @@ def recognize_cam(detector, sess, db_path):
             close_all('', s, out)
             break
     print('End while loop!!')
+
 
 def recognize_test(detector, sess, db_path):
     cam = cv2.VideoCapture(0)
@@ -200,8 +200,8 @@ def recognize_test(detector, sess, db_path):
             img_out = cv2.cvtColor(img_rgb, cv2.COLOR_BGR2RGB)
 
             for i, embedding in enumerate(embeddings):
-                name, distance, total_result, unknown = compare_face(embedding, threshold, db_path)
-                
+                name, distance, total_result, unknown = compare_face(embedding, db_path)
+                print('In compare face')
                 # Draw a rectangle around the recognized face and put the name of the person
                 if(unknown):
                     cv2.rectangle(img_out, (position[i][0], position[i][1]), (position[i][2], position[i][3]), (0, 0, 255), 2)
