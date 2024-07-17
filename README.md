@@ -1,7 +1,8 @@
-You need to download some python modules in requirement and some of them are not fitting your env, so i recommand that you use pipenv to manage env
+You need to download some python modules in requirement and some of them are not fitting your env, so i recommand that you use pipenv to manage env.
+
 Optional, run
 ```
-pipenv
+pipenv shell
 ```
 Then execute program by
 ```
